@@ -166,6 +166,28 @@ def run2():
     bs.logout()
 
 
+def run3():
+    # 导入tushare
+    # import tushare as ts
+    # 初始化pro接口
+    pro = ts.pro_api('8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055')
+
+    # 拉取数据
+    df = pro.cyq_chips(**{
+        "ts_code": "600000.SH",
+        "trade_date": "",
+        "start_date": "",
+        "end_date": "",
+        "limit": "",
+        "offset": ""
+    }, fields=[
+        "ts_code",
+        "trade_date",
+        "price",
+        "percent"
+    ])
+    print(df)
+
 if __name__ == '__main__':
     # run()
-    run2()
+    run3()
