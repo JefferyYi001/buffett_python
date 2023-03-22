@@ -4,9 +4,9 @@ import pandas as pd
 import tushare as ts
 
 TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
-START_DATE = 20130101
-END_DATE = 20230320
-MAX_WORKERS = 4
+START_DATE = 20221222
+END_DATE = 20230322
+MAX_WORKERS = 1
 THREAD_TIMEOUT_IN_SEC = 600
 
 
@@ -76,11 +76,13 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
         close = row['close']
         trade_date = row['trade_date']
         if round(pre_close * 1.1, 2) == round(close, 2):  # 当日涨停
-            window.append(trade_date)
-            if len(window) > 1:
-                res_df.loc[len(res_df)] = row
-        elif len(window) > 0:  # 当日不涨停则重置窗口
-            window = []
+            res_df.loc[len(res_df)] = row
+        # 2 日连续涨停逻辑
+        #     window.append(trade_date)
+        #     if len(window) > 1:
+        #         res_df.loc[len(res_df)] = row
+        # elif len(window) > 0:  # 当日不涨停则重置窗口
+        #     window = []
     print("  ===> 完成第: ", num, "/", total, "支股票的分析")
     return res_df
 
@@ -105,8 +107,6 @@ def run():
             future_list.append(future)
             print("  ===> 提交: ", counter, "/", stock_list_num, "支股票进行分析")
             counter += 1
-            if counter >= 10:
-                break
 
     for i in range(len(future_list)):
         res_df_list.append(future_list[i].result(timeout=THREAD_TIMEOUT_IN_SEC))
@@ -188,6 +188,7 @@ def run3():
     ])
     print(df)
 
+
 if __name__ == '__main__':
-    # run()
-    run3()
+    run()
+    # run3()
