@@ -5,7 +5,7 @@ import tushare as ts
 
 TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
 START_DATE = 20221222
-END_DATE = 20230322
+END_DATE = 20230326
 MAX_WORKERS = 1
 THREAD_TIMEOUT_IN_SEC = 600
 
@@ -69,20 +69,32 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
         "amount"
     ])
     sorted_daily_trans_df = daily_trans_df.sort_values(by=['trade_date'], ascending=[True])
-    window = []
+    date_window = []
+    high_price_window = []
     for index, row in sorted_daily_trans_df.iterrows():
         # 涨停条件: 昨日收盘价 * 1.1 == 今日收盘价四舍五入到分
         pre_close = row['pre_close']
         close = row['close']
         trade_date = row['trade_date']
-        if round(pre_close * 1.1, 2) == round(close, 2):  # 当日涨停
+        high_price = row['high']
+        if round(pre_close * 1.1, 2) == round(close, 2) and len(date_window) == 0:  # 首次涨停
+            date_window.append(trade_date)
+            high_price_window.append(high_price)
+        elif 0 < len(date_window) < 20 and row['high'] >= 1.2 * high_price_window[0]:
             res_df.loc[len(res_df)] = row
+            break
+        elif 0 < len(date_window) < 20:
+            date_window.append(trade_date)
+            high_price_window.append(high_price)
+        elif len(date_window) >= 20:
+            break
         # 2 日连续涨停逻辑
         #     window.append(trade_date)
         #     if len(window) > 1:
         #         res_df.loc[len(res_df)] = row
         # elif len(window) > 0:  # 当日不涨停则重置窗口
         #     window = []
+
     print("  ===> 完成第: ", num, "/", total, "支股票的分析")
     return res_df
 
