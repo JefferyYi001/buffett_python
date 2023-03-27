@@ -2,6 +2,7 @@ import concurrent.futures
 
 import pandas as pd
 import tushare as ts
+from decimal import Decimal
 
 TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
 START_DATE = 20221222
@@ -77,7 +78,9 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
         close = row['close']
         trade_date = row['trade_date']
         high_price = row['high']
-        if round(pre_close * 1.1, 2) == round(close, 2) and len(date_window) == 0:  # 首次涨停
+        limit_up_price_decimal = Decimal(str(pre_close * 1.1)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        close_decimal = Decimal(str(close)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        if limit_up_price_decimal == close_decimal and len(date_window) == 0:  # 首次涨停
             date_window.append(trade_date)
             high_price_window.append(high_price)
         elif 0 < len(date_window) < 20 and row['high'] >= 1.2 * high_price_window[0]:
