@@ -5,10 +5,11 @@ import tushare as ts
 from decimal import Decimal
 
 TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
-START_DATE = 20221222
+START_DATE = 20230101
 END_DATE = 20230326
 MAX_WORKERS = 1
 THREAD_TIMEOUT_IN_SEC = 600
+ANALYSE_WINDOW_LENGTH = 100
 
 
 def get_satisfied_stocks(pro):
@@ -48,7 +49,10 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
                                    "change",
                                    "pct_chg",
                                    "vol",
-                                   "amount"])
+                                   "amount",
+                                   "launch_date",
+                                   "grow_up_days"
+                                   ])
     daily_trans_df = pro.daily(**{
         "ts_code": ts_code,
         "trade_date": "",
@@ -69,27 +73,30 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
         "vol",
         "amount"
     ])
+    daily_trans_df['launch_date'] = 0
+    daily_trans_df['grow_up_days'] = 0
     sorted_daily_trans_df = daily_trans_df.sort_values(by=['trade_date'], ascending=[True])
     date_window = []
-    high_price_window = []
+    close_price_window = []
     for index, row in sorted_daily_trans_df.iterrows():
         # 涨停条件: 昨日收盘价 * 1.1 == 今日收盘价四舍五入到分
-        pre_close = row['pre_close']
-        close = row['close']
+        pre_close_price = row['pre_close']
+        close_price = row['close']
         trade_date = row['trade_date']
-        high_price = row['high']
-        limit_up_price_decimal = Decimal(str(pre_close * 1.1)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
-        close_decimal = Decimal(str(close)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        limit_up_price_decimal = Decimal(str(pre_close_price * 1.1)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
+        close_decimal = Decimal(str(close_price)).quantize(Decimal("0.01"), rounding="ROUND_HALF_UP")
         if limit_up_price_decimal == close_decimal and len(date_window) == 0:  # 首次涨停
             date_window.append(trade_date)
-            high_price_window.append(high_price)
-        elif 0 < len(date_window) < 20 and row['high'] >= 1.2 * high_price_window[0]:
+            close_price_window.append(close_price)
+        elif 0 < len(date_window) < ANALYSE_WINDOW_LENGTH and close_price >= 1.2 * close_price_window[0]:
+            row['launch_date'] = date_window[0]
+            row['grow_up_days'] = len(date_window)
             res_df.loc[len(res_df)] = row
             break
-        elif 0 < len(date_window) < 20:
+        elif 0 < len(date_window) < ANALYSE_WINDOW_LENGTH:
             date_window.append(trade_date)
-            high_price_window.append(high_price)
-        elif len(date_window) >= 20:
+            close_price_window.append(close_price)
+        elif len(date_window) >= ANALYSE_WINDOW_LENGTH:
             break
         # 2 日连续涨停逻辑
         #     window.append(trade_date)
@@ -138,7 +145,10 @@ def run():
                                        "change",
                                        "pct_chg",
                                        "vol",
-                                       "amount"])
+                                       "amount",
+                                       "launch_date",
+                                       "grow_up_days"
+                                       ])
     for res_df in res_df_list:
         if len(res_df) > 0:
             all_res_df = pd.concat([all_res_df, res_df], ignore_index=True)
