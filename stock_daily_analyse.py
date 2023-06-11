@@ -4,9 +4,10 @@ import pandas as pd
 import tushare as ts
 from decimal import Decimal
 
-TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
+# TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
+TOKEN = 'cecc095f035b006972612fab8539c864f2bad50f41eff04ab6f33b91'
 START_DATE = 20230101
-END_DATE = 20230326
+END_DATE = 20230609
 MAX_WORKERS = 1
 THREAD_TIMEOUT_IN_SEC = 600
 ANALYSE_WINDOW_LENGTH = 100
@@ -156,6 +157,7 @@ def run():
     all_res_df.to_excel('stock_limit_up_log.xlsx', sheet_name='stock_limit_up_log')
 
 
+# 获取分钟级交易数据
 def run2():
     import baostock as bs
 
@@ -163,13 +165,13 @@ def run2():
     lg = bs.login()
     # 显示登陆返回信息
     print('login respond error_code:' + lg.error_code)
-    print('login respond  error_msg:' + lg.error_msg)
+    print('login respond error_msg:' + lg.error_msg)
 
     #### 获取沪深A股历史K线数据 ####
     # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。“分钟线”不包含指数。
     # 分钟线指标：date,time,code,open,high,low,close,volume,amount,adjustflag
     # 周月线指标：date,code,open,high,low,close,volume,amount,adjustflag,turn,pctChg
-    rs = bs.query_history_k_data_plus("sh.600000",
+    rs = bs.query_history_k_data_plus("sz.128074",
                                       "date,time,code,open,high,low,close,volume,amount,adjustflag",
                                       start_date='2017-07-01', end_date='2017-07-31',
                                       frequency="5", adjustflag="3")
@@ -191,6 +193,7 @@ def run2():
     bs.logout()
 
 
+# 获取筹码分布
 def run3():
     # 导入tushare
     # import tushare as ts
@@ -216,4 +219,4 @@ def run3():
 
 if __name__ == '__main__':
     run()
-    # run3()
+    # run2()
