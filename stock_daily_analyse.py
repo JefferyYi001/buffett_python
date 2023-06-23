@@ -5,11 +5,11 @@ import tushare as ts
 from decimal import Decimal
 
 # TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
-# TOKEN = 'cecc095f035b006972612fab8539c864f2bad50f41eff04ab6f33b91'
-TOKEN = '591e6891f9287935f45fc712bcf62335a81cd6829ce76c21c0fdf7b2'
+TOKEN = 'cecc095f035b006972612fab8539c864f2bad50f41eff04ab6f33b91'
+# TOKEN = '591e6891f9287935f45fc712bcf62335a81cd6829ce76c21c0fdf7b2'
 START_DATE = 20230101
 END_DATE = 20230621
-MAX_WORKERS = 2
+MAX_WORKERS = 1
 THREAD_TIMEOUT_IN_SEC = 600
 ANALYSE_WINDOW_LENGTH = 100
 
@@ -43,8 +43,8 @@ def get_satisfied_stocks(pro):
 # 涨停分析
 def limit_up_analyse(num, total, sorted_daily_trans_df):
     res_df = pd.DataFrame(columns=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open', 'high', 'low',
-                                   'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', 'launch_date',
-                                   'grow_up_days'])
+                                   'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', "total_share", "float_share",
+                                   'launch_date', 'grow_up_days'])
     date_window = []
     close_price_window = []
     for index, row in sorted_daily_trans_df.iterrows():
@@ -79,8 +79,20 @@ def limit_up_analyse(num, total, sorted_daily_trans_df):
 
 
 # 基本交易数据分析
-def basic_analyse(num, total, sorted_daily_trans_df):
-    pass
+def basic_analyse(num, total, daily_basic_df):
+    # 1. 涨幅 3%~5%
+    filtered_daily_basic_df1 = daily_basic_df[(daily_basic_df['pct_change'] >= 3) & (daily_basic_df['pct_change'] <= 5)]
+    # 2. 量比 >= 1
+    filtered_daily_basic_df2 = filtered_daily_basic_df1[filtered_daily_basic_df1['vol_ratio'] >= 1]
+    # 3. 换手率 4%~8%
+    filtered_daily_basic_df3 = filtered_daily_basic_df2[
+        (filtered_daily_basic_df2['turn_over'] >= 5) & (filtered_daily_basic_df2['turn_over'] <= 10)]
+    # 4. 流通市值 50亿~200亿
+    filtered_daily_basic_df4 = filtered_daily_basic_df3[
+        (filtered_daily_basic_df3['float_share'] >= 50) & filtered_daily_basic_df3['float_share'] <= 200]
+    # 5. 获取接下来的 10 个交易日最高价与涨幅 + 当日筹码分布信息
+    print("  ===> 完成第: ", num, "/", total, "支股票的分析")
+    return filtered_daily_basic_df4
 
 
 def get_daily_trans_and_analyse(num, total, pro, ts_code):
@@ -91,14 +103,15 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
                                       "offset": "",
                                       "limit": ""
                                       },
-                                   fields=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open',
-                                           'high', 'low', 'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount'])
+                                   fields=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open', 'high',
+                                           'low', 'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', "total_share",
+                                           "float_share"])
     daily_trans_df['launch_date'] = 0
     daily_trans_df['grow_up_days'] = 0
     sorted_daily_trans_df = daily_trans_df.sort_values(by=['trade_date'], ascending=[True])
     # limit_up_analyse(num, total, sorted_daily_trans_df)
-    basic_analyse(num, total, sorted_daily_trans_df)
-    return None
+    # basic_analyse(num, total, sorted_daily_trans_df)
+    return basic_analyse(num, total, sorted_daily_trans_df)
 
 
 def run():
@@ -122,17 +135,15 @@ def run():
             print("  ===> 提交: ", counter, "/", stock_list_num, "支股票进行分析")
             counter += 1
 
-            if counter >= 100:
-                break
-
     for i in range(len(future_list)):
-        res_df_list.append(future_list[i].result(timeout=THREAD_TIMEOUT_IN_SEC))
-        print("  ===> 已获取到: ", i + 1, "/", stock_list_num, "支股票分析结果")
+        res = future_list[i].result(timeout=THREAD_TIMEOUT_IN_SEC)
+        res_df_list.append(res)
+        print("  ===> 已获取到: ", i + 1, "/", stock_list_num, "支股票分析结果 ", len(res), "条")
 
     # 4. 合并所有结果
     all_res_df = pd.DataFrame(columns=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open', 'high', 'low',
-                                       'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', 'launch_date',
-                                       'grow_up_days'])
+                                       'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', "total_share",
+                                       "float_share", 'launch_date', 'grow_up_days'])
     for res_df in res_df_list:
         if len(res_df) > 0:
             all_res_df = pd.concat([all_res_df, res_df], ignore_index=True)
@@ -202,33 +213,13 @@ def run3():
 
 def test():
     pro = ts.pro_api(TOKEN)
-    daily_trans_df = pro.bak_daily(**{
-        "ts_code": '688129.SH',
-        "trade_date": "",
-        "start_date": START_DATE,
-        "end_date": END_DATE,
-        "offset": "",
-        "limit": ""
-    }, fields=[
-        "ts_code",
-        "trade_date",
-        "open",
-        "high",
-        "low",
-        "close",
-        "pre_close",
-        "change",
-        "pct_change",
-        "vol",
-        "amount",
-        "vol_ratio",
-        "turn_over"
-    ])
+    df = pro.cyq_perf(ts_code='600000.SH', start_date='20220101', end_date='20220429')
 
-    print(daily_trans_df.columns)
+    print(df.columns)
+    print(df)
 
 
 if __name__ == '__main__':
-    run()
+    # run()
     # run2()
-    # test()
+    test()
