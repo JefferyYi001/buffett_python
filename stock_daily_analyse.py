@@ -5,10 +5,11 @@ import tushare as ts
 from decimal import Decimal
 
 # TOKEN = '8a5af498224fb2ebea8a11345fb4cfc81242631f66c7eebce8cdc055'
-TOKEN = 'cecc095f035b006972612fab8539c864f2bad50f41eff04ab6f33b91'
+# TOKEN = 'cecc095f035b006972612fab8539c864f2bad50f41eff04ab6f33b91'
+TOKEN = '591e6891f9287935f45fc712bcf62335a81cd6829ce76c21c0fdf7b2'
 START_DATE = 20230101
-END_DATE = 20230609
-MAX_WORKERS = 1
+END_DATE = 20230621
+MAX_WORKERS = 2
 THREAD_TIMEOUT_IN_SEC = 600
 ANALYSE_WINDOW_LENGTH = 100
 
@@ -39,44 +40,11 @@ def get_satisfied_stocks(pro):
     return filtered_stock_df2
 
 
-def get_daily_trans_and_analyse(num, total, pro, ts_code):
-    res_df = pd.DataFrame(columns=["ts_code",
-                                   "trade_date",
-                                   "open",
-                                   "high",
-                                   "low",
-                                   "close",
-                                   "pre_close",
-                                   "change",
-                                   "pct_chg",
-                                   "vol",
-                                   "amount",
-                                   "launch_date",
-                                   "grow_up_days"
-                                   ])
-    daily_trans_df = pro.daily(**{
-        "ts_code": ts_code,
-        "trade_date": "",
-        "start_date": START_DATE,
-        "end_date": END_DATE,
-        "offset": "",
-        "limit": ""
-    }, fields=[
-        "ts_code",
-        "trade_date",
-        "open",
-        "high",
-        "low",
-        "close",
-        "pre_close",
-        "change",
-        "pct_chg",
-        "vol",
-        "amount"
-    ])
-    daily_trans_df['launch_date'] = 0
-    daily_trans_df['grow_up_days'] = 0
-    sorted_daily_trans_df = daily_trans_df.sort_values(by=['trade_date'], ascending=[True])
+# 涨停分析
+def limit_up_analyse(num, total, sorted_daily_trans_df):
+    res_df = pd.DataFrame(columns=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open', 'high', 'low',
+                                   'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', 'launch_date',
+                                   'grow_up_days'])
     date_window = []
     close_price_window = []
     for index, row in sorted_daily_trans_df.iterrows():
@@ -110,6 +78,29 @@ def get_daily_trans_and_analyse(num, total, pro, ts_code):
     return res_df
 
 
+# 基本交易数据分析
+def basic_analyse(num, total, sorted_daily_trans_df):
+    pass
+
+
+def get_daily_trans_and_analyse(num, total, pro, ts_code):
+    daily_trans_df = pro.bak_daily(**{"ts_code": ts_code,
+                                      "trade_date": "",
+                                      "start_date": START_DATE,
+                                      "end_date": END_DATE,
+                                      "offset": "",
+                                      "limit": ""
+                                      },
+                                   fields=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open',
+                                           'high', 'low', 'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount'])
+    daily_trans_df['launch_date'] = 0
+    daily_trans_df['grow_up_days'] = 0
+    sorted_daily_trans_df = daily_trans_df.sort_values(by=['trade_date'], ascending=[True])
+    # limit_up_analyse(num, total, sorted_daily_trans_df)
+    basic_analyse(num, total, sorted_daily_trans_df)
+    return None
+
+
 def run():
     # 1. 初始化pro接口
     pro = ts.pro_api(TOKEN)
@@ -117,7 +108,7 @@ def run():
     # 2. 拉取所有股票数据, 并返回根据基本信息筛选出满足条件的股票
     stock_list_df = get_satisfied_stocks(pro)
     stock_list_num = stock_list_df.shape[0]
-    print("===> A 股主板、中小盘上市公司总数为: ", stock_list_num)
+    print("===> 满足要求的 A 股主板、中小盘上市公司总数为: ", stock_list_num)
 
     # 3. 拉取每只股票的详细数据并进行分析
     future_list = []
@@ -131,25 +122,17 @@ def run():
             print("  ===> 提交: ", counter, "/", stock_list_num, "支股票进行分析")
             counter += 1
 
+            if counter >= 100:
+                break
+
     for i in range(len(future_list)):
         res_df_list.append(future_list[i].result(timeout=THREAD_TIMEOUT_IN_SEC))
         print("  ===> 已获取到: ", i + 1, "/", stock_list_num, "支股票分析结果")
 
     # 4. 合并所有结果
-    all_res_df = pd.DataFrame(columns=["ts_code",
-                                       "trade_date",
-                                       "open",
-                                       "high",
-                                       "low",
-                                       "close",
-                                       "pre_close",
-                                       "change",
-                                       "pct_chg",
-                                       "vol",
-                                       "amount",
-                                       "launch_date",
-                                       "grow_up_days"
-                                       ])
+    all_res_df = pd.DataFrame(columns=['ts_code', 'trade_date', 'pct_change', 'close', 'change', 'open', 'high', 'low',
+                                       'pre_close', 'vol_ratio', 'turn_over', 'vol', 'amount', 'launch_date',
+                                       'grow_up_days'])
     for res_df in res_df_list:
         if len(res_df) > 0:
             all_res_df = pd.concat([all_res_df, res_df], ignore_index=True)
@@ -217,6 +200,35 @@ def run3():
     print(df)
 
 
+def test():
+    pro = ts.pro_api(TOKEN)
+    daily_trans_df = pro.bak_daily(**{
+        "ts_code": '688129.SH',
+        "trade_date": "",
+        "start_date": START_DATE,
+        "end_date": END_DATE,
+        "offset": "",
+        "limit": ""
+    }, fields=[
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_change",
+        "vol",
+        "amount",
+        "vol_ratio",
+        "turn_over"
+    ])
+
+    print(daily_trans_df.columns)
+
+
 if __name__ == '__main__':
     run()
     # run2()
+    # test()
