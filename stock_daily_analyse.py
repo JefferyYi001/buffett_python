@@ -94,12 +94,12 @@ def basic_analyse(num, total, daily_basic_df, pro, ts_code):
         close = row['close']
         trade_date = row['trade_date']
 
-        # 1. 流通市值 50亿~200亿
-        if 10 <= float_share <= 100:
-            # 2. 涨幅 3%~5%
+        # 1. 流通市值 10亿~150亿
+        if 10 <= float_share <= 150:
+            # 2. 涨幅 2%~6%
             # 3. 量比 >= 1
-            # 4. 换手率 4%~8%
-            if (3 <= pct_change <= 8) and (vol_ratio >= 1) and (2 <= turn_over <= 8):
+            # 4. 换手率 1%~7%
+            if (2 <= pct_change <= 6) and (vol_ratio >= 1) and (2 <= turn_over <= 7):
                 # 5. 计算接下来的 10 个交易日最高价与最高涨幅
                 highest_10_days = daily_basic_df['high'].iloc[index: index + 10].max().item()
                 row['highest_10_days'] = highest_10_days
